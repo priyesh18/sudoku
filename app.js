@@ -11,7 +11,7 @@ const store = {
 const fmt = (ms) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
 
 let S = store.get("sudoku-game"); // the whole game; saved on every change
-let sel = -1, notesMode = false, flash = null, popped = -1, shine = [];
+let sel = -1, focusDigit = 0, notesMode = false, flash = null, popped = -1, shine = [];
 let chosenMode = S?.mode ?? "normal";
 const save = () => S && store.set("sudoku-game", S);
 const commit = () => { save(); render(); };
@@ -25,7 +25,7 @@ const fresh = (level, mode, puzzle, solution) => ({
 const cells = Array.from({ length: 81 }, (_, i) => {
   const b = document.createElement("button");
   b.className = "cell"; b.dataset.r = (i / 9) | 0; b.dataset.c = i % 9;
-  b.onclick = () => { sel = i; render(); };
+  b.onclick = () => { sel = i; focusDigit = 0; render(); };
   $("grid").append(b);
   return b;
 });
@@ -41,7 +41,9 @@ const snapshot = () => { S.undo.push({ values: S.values.slice(), notes: S.notes.
 const playing = () => S?.status === "playing";
 
 function input(d) {
-  if (!playing() || sel < 0 || S.values[sel]) return;
+  if (!playing()) return;
+  // No empty cell selected: the keypad just highlights every copy of that digit.
+  if (sel < 0 || S.values[sel]) { sel = -1; focusDigit = d; return render(); }
   if (notesMode) { snapshot(); S.notes[sel] ^= 1 << d; return commit(); }
   if (S.solution[sel] !== d) {
     S.lives--;
@@ -163,7 +165,7 @@ function render() {
   $("lives").setAttribute("aria-label", `${S.lives} lives left`);
 
   const h = S.hint, region = new Set(h?.region), focus = new Set(h?.step >= 2 ? h.focus : []);
-  const selVal = sel >= 0 ? S.values[sel] : 0;
+  const selVal = sel >= 0 ? S.values[sel] : focusDigit;
   cells.forEach((el, i) => {
     const v = S.values[i], bad = flash?.i === i;
     el.className = "cell" +

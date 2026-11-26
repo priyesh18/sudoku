@@ -1,5 +1,5 @@
 // Cache-first so the app works fully offline. Bump CACHE whenever any file changes, or installed copies keep the old version.
-const CACHE = "sudoku-v1";
+const CACHE = "sudoku-v2";
 const FILES = ["./", "index.html", "app.js", "sudoku.js", "worker.js", "manifest.json", "icon-180.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())));
