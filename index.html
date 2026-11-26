@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sudoku">
+<meta name="theme-color" content="#2b2257">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Sudoku</title>
+<style>
+  :root {
+    --bg: #f4f0ff; --surface: #ffffff; --ink: #231942; --muted: #6b6290;
+    --line: #ddd5f7; --thick: #4b3f8a; --peer: #f0ebff; --same: #ffe8a3; --bad: #ff4d6d;
+    --accent: #22c55e;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17132e; --surface: #221c42; --ink: #f1edff; --muted: #a59cd0;
+      --line: #3a3166; --thick: #9d92e0; --peer: #2b2453; --same: #5b4a12; --bad: #ff6b85;
+    }
+  }
+  body[data-level="1"] { --accent: #3b82f6; }
+  body[data-level="2"] { --accent: #f97316; }
+  body[data-level="3"] { --accent: #d946ef; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%), var(--bg);
+    color: var(--ink); font: 16px/1.4 ui-rounded, -apple-system, system-ui, sans-serif;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .35; cursor: default; }
+
+  .bar, main { width: min(100%, 520px); }
+  .bar { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .chip { background: var(--surface); border-radius: 999px; padding: 8px 12px; min-height: 44px; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 0 var(--line); font-weight: 700; }
+  #levelTag { background: var(--accent); color: #fff; box-shadow: none; }
+  #timer { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+  #lives { color: var(--bad); font-size: 15px; }
+
+  main { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  #grid {
+    display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1; width: min(100%, 62vh); margin: 0 auto;
+    background: var(--surface); border: 3px solid var(--thick); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 6px 0 color-mix(in srgb, var(--thick) 35%, transparent);
+  }
+  .cell {
+    position: relative; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    display: grid; place-items: center; font-size: clamp(18px, 6vw, 30px); font-weight: 600; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .cell[data-c="2"], .cell[data-c="5"] { border-right: 2px solid var(--thick); }
+  .cell[data-r="2"], .cell[data-r="5"] { border-bottom: 2px solid var(--thick); }
+  .cell[data-c="8"] { border-right: 0; } .cell[data-r="8"] { border-bottom: 0; }
+  .cell.given { color: var(--ink); font-weight: 700; }
+  .cell.peer { background: var(--peer); }
+  .cell.region { background: color-mix(in srgb, var(--accent) 20%, var(--surface)); }
+  .cell.same { background: var(--same); }
+  .cell.focus { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .cell.target { box-shadow: inset 0 0 0 3px var(--accent); background: color-mix(in srgb, var(--accent) 35%, var(--surface)); }
+  .cell.selected { background: color-mix(in srgb, var(--accent) 40%, var(--surface)); }
+  .cell.bad { color: var(--bad); animation: shake .35s; }
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; padding: 2px; }
+  .notes i { font-style: normal; font-size: clamp(8px, 2.4vw, 12px); font-weight: 600; color: var(--muted); display: grid; place-items: center; }
+
+  #hint { background: var(--surface); border-radius: 16px; padding: 12px 14px; border: 2px solid var(--accent); }
+  #hint h3 { margin: 0 0 4px; font-size: 15px; color: var(--accent); }
+  #hint p { margin: 0 0 8px; }
+  #hintHabit { color: var(--muted); font-size: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { min-height: 44px; padding: 0 16px; border-radius: 12px; background: var(--peer); font-weight: 700; }
+  .btn.primary { background: var(--accent); color: #fff; }
+
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tool { min-height: 52px; border-radius: 14px; background: var(--surface); font-weight: 700; font-size: 14px; box-shadow: 0 3px 0 var(--line); white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+  .tool small { font-size: 11px; color: var(--bad); }
+  .tool[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: none; }
+  #pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+  #pad button { min-height: 56px; border-radius: 14px; background: var(--surface); box-shadow: 0 3px 0 var(--line); font-size: 26px; font-weight: 700; color: var(--accent); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  #pad small { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  #pad button:active, .tool:active { transform: translateY(2px); box-shadow: none; }
+  .notes-on #pad button { font-size: 18px; color: var(--muted); }
+
+  dialog { border: 0; border-radius: 22px; padding: 20px; width: min(92vw, 420px); background: var(--surface); color: var(--ink); }
+  dialog::backdrop { background: rgb(20 10 50 / .55); }
+  dialog h2 { margin: 0 0 12px; }
+  .choice { display: grid; gap: 8px; margin-bottom: 14px; }
+  .choice.two { grid-template-columns: 1fr 1fr; }
+  .opt { min-height: 56px; border-radius: 14px; background: var(--peer); padding: 10px 14px; text-align: left; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .opt small { font-weight: 500; color: var(--muted); font-size: 12px; }
+  .choice.two .opt { flex-direction: column; align-items: flex-start; }
+  .opt[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .opt[aria-pressed="true"] small { color: inherit; opacity: .75; }
+  .lvl { color: #fff; } .lvl small { color: #fff; opacity: .85; }
+  #status { color: var(--muted); min-height: 1.4em; margin: 0 0 8px; }
+
+  .pop { animation: pop .3s; }
+  .shine { animation: shine .7s both; animation-delay: var(--d); }
+  .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 2px; animation: fall 2.6s ease-in forwards; z-index: 10; pointer-events: none; }
+  @keyframes pop { 50% { transform: scale(1.35); } }
+  @keyframes shine { 40% { background: color-mix(in srgb, var(--accent) 60%, var(--surface)); color: #fff; } }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @keyframes fall { to { transform: translate(var(--x), 105vh) rotate(var(--r)); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body data-level="0">
+  <header class="bar">
+    <button id="newBtn" class="chip" aria-label="New game">＋ New</button>
+    <span id="levelTag" class="chip"><span id="levelName">Easy</span><span id="modeTag" role="img" aria-label="Hardcore" hidden>🔥</span></span>
+    <span id="timer">00:00</span>
+    <span id="lives"></span>
+  </header>
+  <main>
+    <div id="grid" role="group" aria-label="Sudoku board"></div>
+    <section id="hint" hidden aria-live="polite">
+      <h3 id="hintTitle"></h3>
+      <p id="hintText"></p>
+      <p id="hintHabit"></p>
+      <div class="row">
+        <button id="hintMore" class="btn primary">Show more</button>
+        <button id="hintApply" class="btn primary"></button>
+        <button id="hintClose" class="btn">Close</button>
+      </div>
+    </section>
+    <div class="tools">
+      <button id="undoBtn" class="tool">↶ Undo</button>
+      <button id="eraseBtn" class="tool">⌫ Erase</button>
+      <button id="notesBtn" class="tool" aria-pressed="false">✎ Notes</button>
+      <button id="hintBtn" class="tool">💡 Hint</button>
+    </div>
+    <div id="pad"></div>
+  </main>
+
+  <dialog id="newDlg">
+    <h2>New game</h2>
+    <div class="choice two" id="modes">
+      <button class="opt" data-mode="normal">Normal <small>3 mistakes · free hints</small></button>
+      <button class="opt" data-mode="hardcore">Hardcore <small>5 lives for mistakes + hints</small></button>
+    </div>
+    <div class="choice" id="levels"></div>
+    <p id="status"></p>
+    <button id="newCancel" class="btn">Cancel</button>
+  </dialog>
+
+  <dialog id="endDlg">
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="row">
+      <button id="retryBtn" class="btn">Retry this puzzle</button>
+      <button id="againBtn" class="btn primary">New game</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
